@@ -2,8 +2,7 @@
     
 <p><strong>Un script bash completo para recuperación y mantenimiento de emergencia de sitios WordPress en servidores VPS (optimizado para AWS Lightsail con Bitnami)</strong></p>
 <hr>
-    
-    <h2>🚨 ¿Para qué sirve?</h2>
+<h2>🚨 ¿Para qué sirve?</h2>
     
     <p>Script de emergencia diseñado para administradores y desarrolladores que necesitan recuperar rápidamente un sitio WordPress cuando:</p>
     
