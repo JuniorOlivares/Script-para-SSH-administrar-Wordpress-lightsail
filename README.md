@@ -53,17 +53,19 @@
 <li>Bash shell</li>
 </ul>
 <h2>🔧 Instalación</h2>
-<pre><code># Conectar por SSH
+<pre>
+<code>
+# Conectar por SSH
 ssh -i tu-llave.pem usuario@tu-servidor
 
 # Descargar el script
-wget https://raw.githubusercontent.com/tu-usuario/tu-repo/main/wordpress-emergency.sh
+En este link:
 
 # Dar permisos de ejecución
 chmod +x wordpress-emergency.sh
 
 # Ejecutar
-./wordpress-emergency.sh</code></pre>
+./wordpress-emergency.sh
 <h2>📖 Uso</h2>
 <p>El script presenta un menú interactivo con 17 opciones organizadas en categorías:</p>
 <pre><code>==================================
@@ -104,3 +106,73 @@ RESPALDOS:
 <li><strong>Validación</strong>: Verifica existencia de archivos/carpetas antes de operar</li>
 <li><strong>Permisos seguros</strong>: Mantiene permisos correctos de WordPress</li>
 </ul>
+<h2>🎨 Interfaz mejorada</h2>
+<p>Códigos de color para mejor legibilidad:</p>
+<ul>
+<li>🟢 <span style="color: green;">Verde</span>: Operaciones exitosas</li>
+<li>🟡 <span style="color: orange;">Amarillo</span>: Información importante</li>
+<li>🔴 <span style="color: red;">Rojo</span>: Errores y advertencias</li>
+</ul>
+<p>Características adicionales:</p>
+<ul>
+<li>Menú numerado fácil de navegar</li>
+<li>Mensajes claros de confirmación</li>
+<li>Indicadores de progreso</li>
+</ul>
+<h2>⚙️ Personalización</h2>
+<p>Puedes ajustar las rutas editando las variables al inicio del script:</p>
+<pre><code>WP_PATH="/opt/bitnami/wordpress"        # Ruta de WordPress
+PLUGINS_PATH="$WP_PATH/wp-content/plugins"
+THEMES_PATH="$WP_PATH/wp-content/themes"
+BACKUP_DIR="$HOME/wp-backups"           # Directorio de respaldos</code></pre>
+<h2>🚀 Casos de uso comunes</h2>
+<h3>1. Plugin causó pantalla blanca</h3>
+<ul>
+<li>Opción 2: Desactivar el plugin problemático</li>
+<li>O Opción 4: Desactivar todos los plugins</li>
+</ul>
+<h3>2. Tema roto el sitio</h3>
+<ul>
+<li>Opción 8: Desactivar tema problemático</li>
+<li>WordPress activará automáticamente un tema por defecto</li>
+</ul>
+<h3>3. Necesitas ver qué está fallando</h3>
+<ul>
+<li>Opción 11: Activar modo DEBUG</li>
+<li>Opción 10: Ver últimos errores</li>
+</ul>
+<h3>4. Mantenimiento preventivo</h3>
+<ul>
+<li>Opción 15-17: Crear respaldos</li>
+<li>Opción 12: Reparar permisos</li>
+<li>Opción 13: Limpiar caché</li>
+</ul>
+<h2>📝 Notas importantes</h2>
+<ul>
+<li>Diseñado específicamente para instalaciones Bitnami en AWS Lightsail</li>
+<li>Compatible con otras instalaciones ajustando las rutas</li>
+<li>No requiere herramientas adicionales (no necesita cPanel, Webmin, etc.)</li>
+<li>Alternativa ligera a paneles de control pesados</li>
+<li>Ideal para emergencias cuando el acceso web no funciona</li>
+</ul>
+<h2>🤝 Contribuciones</h2>
+<p>Las contribuciones son bienvenidas. Por favor:</p>
+<ol>
+<li>Fork el proyecto</li>
+<li>Crea tu rama de características (<code>git checkout -b feature/NuevaCaracteristica</code>)</li>
+<li>Commit tus cambios (<code>git commit -m 'Agregar nueva característica'</code>)</li>
+<li>Push a la rama (<code>git push origin feature/NuevaCaracteristica</code>)</li>
+<li>Abre un Pull Request</li>
+</ol>
+<h2>📄 Licencia</h2>
+<p>Este proyecto está bajo la Licencia MIT - ver el archivo LICENSE para más detalles.</p>
+<h2>👨‍💻 Autor</h2>
+<p>Creado para la comunidad de WordPress por desarrolladores que han sufrido demasiadas pantallas blancas de la muerte.</p>
+<h2>🙏 Agradecimientos</h2>
+<ul>
+<li>Comunidad WordPress</li>
+<li>Equipo Bitnami</li>
+<li>Usuarios de AWS Lightsail</li>
+</ul>
+<hr>
+<p><strong>⭐ Si este script te salvó el día, considera darle una estrella al repositorio!</strong></p>
