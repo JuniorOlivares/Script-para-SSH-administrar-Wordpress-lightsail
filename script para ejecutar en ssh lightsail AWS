@@ -1,0 +1,421 @@
+#!/bin/bash
+# WordPress Emergency Script v3.0
+# Guardar como: ~/wordpress-emergency.sh
+
+# Colores para mejor visualización
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Rutas de WordPress (ajusta si es necesario)
+WP_PATH="/opt/bitnami/wordpress"
+PLUGINS_PATH="$WP_PATH/wp-content/plugins"
+THEMES_PATH="$WP_PATH/wp-content/themes"
+BACKUP_DIR="$HOME/wp-backups"
+
+# Crear directorio de backups si no existe
+mkdir -p $BACKUP_DIR
+
+# Función para mostrar el menú principal
+show_menu() {
+    clear
+    echo -e "${GREEN}==================================${NC}"
+    echo -e "${GREEN}   WordPress Emergency Script     ${NC}"
+    echo -e "${GREEN}==================================${NC}"
+    echo ""
+    echo "GESTIÓN DE PLUGINS:"
+    echo "  1. Ver todos los plugins"
+    echo "  2. Desactivar UN plugin específico"
+    echo "  3. Reactivar UN plugin específico"
+    echo "  4. Desactivar TODOS los plugins"
+    echo "  5. Restaurar todos los plugins"
+    echo ""
+    echo "GESTIÓN DE TEMAS:"
+    echo "  6. Ver todos los temas"
+    echo "  7. Cambiar tema activo"
+    echo "  8. Desactivar tema problemático"
+    echo "  9. Activar tema por defecto (Twenty Twenty-Three)"
+    echo ""
+    echo "DIAGNÓSTICO Y REPARACIÓN:"
+    echo "  10. Ver últimos errores de WordPress"
+    echo "  11. Activar/Desactivar modo DEBUG"
+    echo "  12. Reparar permisos de archivos"
+    echo "  13. Limpiar caché de WordPress"
+    echo "  14. Verificar integridad de WordPress"
+    echo ""
+    echo "RESPALDOS:"
+    echo "  15. Hacer backup de plugins"
+    echo "  16. Hacer backup de temas"
+    echo "  17. Hacer backup completo de wp-content"
+    echo ""
+    echo "  0. Salir"
+    echo ""
+}
+
+# Función para listar plugins
+list_plugins() {
+    echo -e "${YELLOW}Plugins instalados:${NC}"
+    ls -la $PLUGINS_PATH | grep '^d' | awk '{print $9}' | grep -v '^\.' | nl
+}
+
+# Función para listar temas
+list_themes() {
+    echo -e "${YELLOW}Temas instalados:${NC}"
+    ls -la $THEMES_PATH | grep '^d' | awk '{print $9}' | grep -v '^\.' | nl
+    echo ""
+    # Intentar obtener el tema activo de forma alternativa
+    echo -e "${GREEN}Tema activo actual:${NC}"
+    if [ -f "$WP_PATH/wp-content/themes/active-theme.txt" ]; then
+        cat "$WP_PATH/wp-content/themes/active-theme.txt"
+    else
+        # Obtener de la base de datos si es posible
+        echo "Para ver el tema activo, revisa en WordPress Admin > Apariencia"
+    fi
+}
+
+# Función para verificar modo debug
+check_debug_mode() {
+    if grep -q "define.*WP_DEBUG.*true" $WP_PATH/wp-config.php; then
+        echo -e "${GREEN}Modo DEBUG está: ACTIVADO${NC}"
+    else
+        echo -e "${RED}Modo DEBUG está: DESACTIVADO${NC}"
+    fi
+}
+
+# Menú principal
+while true; do
+    show_menu
+    read -p "Elige una opción (0-17): " choice
+    
+    case $choice in
+        1)  # Ver plugins
+            clear
+            list_plugins
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        2)  # Desactivar un plugin
+            clear
+            list_plugins
+            echo ""
+            echo -e "${YELLOW}Puedes ingresar el número o el nombre del plugin${NC}"
+            read -p "Selecciona plugin a desactivar: " selection
+            
+            # Verificar si es un número
+            if [[ "$selection" =~ ^[0-9]+$ ]]; then
+                # Obtener el nombre del plugin por número
+                plugin_name=$(ls -d $PLUGINS_PATH/*/ 2>/dev/null | grep -v '\.disabled' | sed 's|/$||' | sed "s|$PLUGINS_PATH/||" | sed -n "${selection}p")
+            else
+                plugin_name="$selection"
+            fi
+            
+            if [ -n "$plugin_name" ] && [ -d "$PLUGINS_PATH/$plugin_name" ]; then
+                # Simplemente agregar 's' al final del nombre
+                sudo mv "$PLUGINS_PATH/$plugin_name" "$PLUGINS_PATH/${plugin_name}s"
+                echo -e "${GREEN}✓ Plugin '$plugin_name' desactivado${NC}"
+                echo -e "${YELLOW}  Renombrado a: ${plugin_name}s${NC}"
+            else
+                echo -e "${RED}✗ Plugin no encontrado${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        3)  # Reactivar un plugin
+            clear
+            echo -e "${YELLOW}Plugins desactivados (terminan en 's'):${NC}"
+            ls -d $PLUGINS_PATH/*/ 2>/dev/null | grep 's/$' | sed 's|/$||' | sed "s|$PLUGINS_PATH/||" | nl
+            echo ""
+            echo -e "${YELLOW}Puedes ingresar el número o el nombre del plugin${NC}"
+            read -p "Selecciona plugin a reactivar: " selection
+            
+            # Verificar si es un número
+            if [[ "$selection" =~ ^[0-9]+$ ]]; then
+                # Obtener el nombre del plugin por número
+                plugin_name=$(ls -d $PLUGINS_PATH/*/ 2>/dev/null | grep 's/$' | sed 's|/$||' | sed "s|$PLUGINS_PATH/||" | sed -n "${selection}p")
+            else
+                plugin_name="$selection"
+            fi
+            
+            if [ -n "$plugin_name" ] && [ -d "$PLUGINS_PATH/$plugin_name" ]; then
+                # Quitar la 's' del final
+                original_name="${plugin_name%s}"
+                sudo mv "$PLUGINS_PATH/$plugin_name" "$PLUGINS_PATH/$original_name"
+                echo -e "${GREEN}✓ Plugin reactivado${NC}"
+                echo -e "${YELLOW}  Restaurado como: $original_name${NC}"
+            else
+                echo -e "${RED}✗ Plugin no encontrado${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        4)  # Desactivar TODOS los plugins
+            clear
+            echo -e "${RED}¡ADVERTENCIA! Esto desactivará TODOS los plugins${NC}"
+            read -p "¿Estás seguro? (s/n): " confirm
+            if [ "$confirm" = "s" ]; then
+                timestamp=$(date +%Y%m%d_%H%M%S)
+                sudo mv $PLUGINS_PATH "$PLUGINS_PATH.backup_$timestamp"
+                sudo mkdir $PLUGINS_PATH
+                sudo chown bitnami:daemon $PLUGINS_PATH
+                echo -e "${GREEN}✓ Todos los plugins desactivados${NC}"
+                echo -e "${YELLOW}Backup guardado como: plugins.backup_$timestamp${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        5)  # Restaurar plugins
+            clear
+            echo -e "${YELLOW}Backups disponibles:${NC}"
+            ls -la $WP_PATH/wp-content/ | grep 'plugins\.backup' | awk '{print $9}' | nl
+            read -p "Nombre del backup a restaurar: " backup_name
+            if [ -d "$WP_PATH/wp-content/$backup_name" ]; then
+                sudo rm -rf $PLUGINS_PATH
+                sudo mv "$WP_PATH/wp-content/$backup_name" $PLUGINS_PATH
+                echo -e "${GREEN}✓ Plugins restaurados${NC}"
+            else
+                echo -e "${RED}✗ Backup no encontrado${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        6)  # Ver temas
+            clear
+            list_themes
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        7)  # Cambiar tema
+            clear
+            list_themes
+            echo ""
+            echo -e "${YELLOW}NOTA: Para cambiar el tema activo tienes estas opciones:${NC}"
+            echo "1. Cambiar desde WordPress Admin > Apariencia > Temas"
+            echo "2. Usar SSH con privilegios correctos:"
+            echo "   sudo su -s /bin/bash bitnami"
+            echo "   cd $WP_PATH && wp theme activate nombre-del-tema"
+            echo ""
+            echo -e "${GREEN}Alternativa: Desactivar tema problemático${NC}"
+            read -p "¿Deseas desactivar un tema problemático en su lugar? (s/n): " choice
+            if [ "$choice" = "s" ]; then
+                read -p "Nombre del tema a desactivar: " theme_name
+                if [ -d "$THEMES_PATH/$theme_name" ]; then
+                    sudo mv "$THEMES_PATH/$theme_name" "$THEMES_PATH/${theme_name}s"
+                    echo -e "${GREEN}✓ Tema '$theme_name' desactivado${NC}"
+                    echo -e "${YELLOW}WordPress usará automáticamente un tema por defecto${NC}"
+                fi
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        8)  # Desactivar tema problemático
+            clear
+            list_themes
+            echo ""
+            echo -e "${YELLOW}Puedes ingresar el número o el nombre del tema${NC}"
+            read -p "Selecciona tema a desactivar: " selection
+            
+            # Verificar si es un número
+            if [[ "$selection" =~ ^[0-9]+$ ]]; then
+                # Obtener el nombre del tema por número
+                theme_name=$(ls -d $THEMES_PATH/*/ 2>/dev/null | sed 's|/$||' | sed "s|$THEMES_PATH/||" | sed -n "${selection}p")
+            else
+                theme_name="$selection"
+            fi
+            
+            if [ -n "$theme_name" ] && [ -d "$THEMES_PATH/$theme_name" ]; then
+                sudo mv "$THEMES_PATH/$theme_name" "$THEMES_PATH/${theme_name}s"
+                echo -e "${GREEN}✓ Tema '$theme_name' desactivado${NC}"
+                echo -e "${YELLOW}WordPress activará automáticamente un tema por defecto${NC}"
+            else
+                echo -e "${RED}✗ Tema no encontrado${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        9)  # Activar tema por defecto
+            clear
+            echo -e "${YELLOW}Para activar el tema por defecto manualmente:${NC}"
+            echo ""
+            echo "Opción 1 - Desde SSH con privilegios correctos:"
+            echo "   sudo su -s /bin/bash bitnami"
+            echo "   cd $WP_PATH && wp theme activate twentytwentythree"
+            echo ""
+            echo "Opción 2 - Desactivar todos los temas personalizados:"
+            read -p "¿Desactivar todos los temas excepto los por defecto? (s/n): " choice
+            if [ "$choice" = "s" ]; then
+                # Listar temas que no son por defecto de WordPress
+                for theme in $(ls $THEMES_PATH | grep -v "^twenty"); do
+                    if [ -d "$THEMES_PATH/$theme" ] && [[ ! "$theme" =~ s$ ]]; then
+                        sudo mv "$THEMES_PATH/$theme" "$THEMES_PATH/${theme}s"
+                        echo -e "${GREEN}✓ Desactivado: $theme${NC}"
+                    fi
+                done
+                echo -e "${YELLOW}WordPress usará automáticamente un tema Twenty*${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        10) # Ver errores
+            clear
+            echo -e "${YELLOW}Últimos 20 errores de WordPress:${NC}"
+            if [ -f "$WP_PATH/wp-content/debug.log" ]; then
+                sudo tail -20 $WP_PATH/wp-content/debug.log
+            else
+                echo -e "${RED}No se encontró archivo de debug${NC}"
+                echo "Activa el modo DEBUG primero (opción 11)"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        11) # Toggle DEBUG
+            clear
+            check_debug_mode
+            echo ""
+            read -p "¿Cambiar estado del modo DEBUG? (s/n): " toggle
+            if [ "$toggle" = "s" ]; then
+                # Hacer backup de wp-config.php
+                sudo cp $WP_PATH/wp-config.php $WP_PATH/wp-config.php.backup
+                
+                if grep -q "define.*WP_DEBUG.*true" $WP_PATH/wp-config.php; then
+                    # Desactivar DEBUG
+                    sudo sed -i "s/define.*WP_DEBUG.*true.*/define('WP_DEBUG', false);/" $WP_PATH/wp-config.php
+                    sudo sed -i "s/define.*WP_DEBUG_LOG.*true.*/define('WP_DEBUG_LOG', false);/" $WP_PATH/wp-config.php
+                    sudo sed -i "s/define.*WP_DEBUG_DISPLAY.*true.*/define('WP_DEBUG_DISPLAY', false);/" $WP_PATH/wp-config.php
+                    echo -e "${GREEN}✓ Modo DEBUG desactivado${NC}"
+                else
+                    # Activar DEBUG
+                    sudo sed -i "s/define.*WP_DEBUG.*false.*/define('WP_DEBUG', true);/" $WP_PATH/wp-config.php
+                    # Agregar líneas de debug si no existen
+                    if ! grep -q "WP_DEBUG_LOG" $WP_PATH/wp-config.php; then
+                        sudo sed -i "/define.*WP_DEBUG.*true/a define('WP_DEBUG_LOG', true);" $WP_PATH/wp-config.php
+                        sudo sed -i "/define.*WP_DEBUG_LOG.*true/a define('WP_DEBUG_DISPLAY', false);" $WP_PATH/wp-config.php
+                    else
+                        sudo sed -i "s/define.*WP_DEBUG_LOG.*false.*/define('WP_DEBUG_LOG', true);/" $WP_PATH/wp-config.php
+                        sudo sed -i "s/define.*WP_DEBUG_DISPLAY.*false.*/define('WP_DEBUG_DISPLAY', false);/" $WP_PATH/wp-config.php
+                    fi
+                    echo -e "${GREEN}✓ Modo DEBUG activado${NC}"
+                    echo -e "${YELLOW}Los errores se guardarán en: wp-content/debug.log${NC}"
+                fi
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        12) # Reparar permisos
+            clear
+            echo -e "${YELLOW}Reparando permisos de archivos...${NC}"
+            sudo chown -R bitnami:daemon $WP_PATH
+            sudo find $WP_PATH -type d -exec chmod 755 {} \;
+            sudo find $WP_PATH -type f -exec chmod 644 {} \;
+            sudo chmod 640 $WP_PATH/wp-config.php
+            echo -e "${GREEN}✓ Permisos reparados${NC}"
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        13) # Limpiar caché
+            clear
+            echo -e "${YELLOW}Limpiando caché de WordPress...${NC}"
+            # Limpiar transients
+            cd $WP_PATH && sudo -u bitnami wp transient delete --all
+            # Limpiar caché de objetos
+            cd $WP_PATH && sudo -u bitnami wp cache flush
+            # Si existe W3 Total Cache
+            if [ -d "$PLUGINS_PATH/w3-total-cache" ]; then
+                cd $WP_PATH && sudo -u bitnami wp w3-total-cache flush all
+            fi
+            # Si existe WP Super Cache
+            if [ -d "$PLUGINS_PATH/wp-super-cache" ]; then
+                sudo rm -rf $WP_PATH/wp-content/cache/*
+            fi
+            echo -e "${GREEN}✓ Caché limpiado${NC}"
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        14) # Verificar integridad
+            clear
+            echo -e "${YELLOW}Verificando integridad de WordPress...${NC}"
+            cd $WP_PATH && sudo -u bitnami wp core verify-checksums
+            echo ""
+            read -p "¿Deseas reinstalar el core de WordPress? (s/n): " reinstall
+            if [ "$reinstall" = "s" ]; then
+                cd $WP_PATH && sudo -u bitnami wp core download --force --skip-content
+                echo -e "${GREEN}✓ Core de WordPress reinstalado${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        15) # Backup plugins
+            clear
+            timestamp=$(date +%Y%m%d_%H%M%S)
+            backup_file="$BACKUP_DIR/plugins_backup_$timestamp.tar.gz"
+            echo -e "${YELLOW}Se creará un backup de todos los plugins${NC}"
+            echo -e "Archivo: $backup_file"
+            echo -e "Tamaño estimado del directorio plugins:"
+            du -sh $PLUGINS_PATH 2>/dev/null
+            echo ""
+            read -p "¿Deseas continuar con el backup? (s/n): " confirm
+            if [ "$confirm" = "s" ]; then
+                echo -e "${YELLOW}Creando backup de plugins...${NC}"
+                sudo tar -czf $backup_file -C $WP_PATH/wp-content plugins
+                echo -e "${GREEN}✓ Backup guardado en: $backup_file${NC}"
+                ls -lh $backup_file
+            else
+                echo -e "${RED}Backup cancelado${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        16) # Backup temas
+            clear
+            timestamp=$(date +%Y%m%d_%H%M%S)
+            backup_file="$BACKUP_DIR/themes_backup_$timestamp.tar.gz"
+            echo -e "${YELLOW}Se creará un backup de todos los temas${NC}"
+            echo -e "Archivo: $backup_file"
+            echo -e "Tamaño estimado del directorio themes:"
+            du -sh $THEMES_PATH 2>/dev/null
+            echo ""
+            read -p "¿Deseas continuar con el backup? (s/n): " confirm
+            if [ "$confirm" = "s" ]; then
+                echo -e "${YELLOW}Creando backup de temas...${NC}"
+                sudo tar -czf $backup_file -C $WP_PATH/wp-content themes
+                echo -e "${GREEN}✓ Backup guardado en: $backup_file${NC}"
+                ls -lh $backup_file
+            else
+                echo -e "${RED}Backup cancelado${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        17) # Backup completo wp-content
+            clear
+            timestamp=$(date +%Y%m%d_%H%M%S)
+            backup_file="$BACKUP_DIR/wp-content_backup_$timestamp.tar.gz"
+            echo -e "${YELLOW}Se creará un backup completo de wp-content${NC}"
+            echo -e "Archivo: $backup_file"
+            echo -e "Tamaño estimado del directorio wp-content:"
+            du -sh $WP_PATH/wp-content 2>/dev/null
+            echo ""
+            read -p "¿Deseas continuar con el backup? (s/n): " confirm
+            if [ "$confirm" = "s" ]; then
+                echo -e "${YELLOW}Creando backup completo de wp-content...${NC}"
+                echo -e "${RED}Esto puede tomar varios minutos...${NC}"
+                sudo tar -czf $backup_file -C $WP_PATH wp-content
+                echo -e "${GREEN}✓ Backup guardado en: $backup_file${NC}"
+                ls -lh $backup_file
+            else
+                echo -e "${RED}Backup cancelado${NC}"
+            fi
+            read -p "Presiona Enter para continuar..."
+            ;;
+            
+        0)  # Salir
+            echo -e "${GREEN}¡Hasta luego!${NC}"
+            exit 0
+            ;;
+            
+        *)
+            echo -e "${RED}Opción inválida${NC}"
+            read -p "Presiona Enter para continuar..."
+            ;;
+    esac
+done
